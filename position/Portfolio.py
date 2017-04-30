@@ -7,11 +7,13 @@ from refdata.marketdata import MarketData
 
 class Portfolio():
     def __init__(self):
+        symbols = ["IBM", "GOOG", "NFLX", "WMT", "M", "AAPL", "INTC", "PG", "MS", "JPM"]
+
         self.positions = pd.DataFrame(
             data={
-                "Symbol": ["IBM", "GOOG", "NFLX", "WMT", "M"],
+                "Symbol": symbols,
                 # "Country": ["US", "US", "UK", "UK", "US"],
-                "quantity": [100, 200, 300, 400, 500]
+                "quantity": [np.random.randint(1000, high=10000) for i in range(0, len(symbols))]
             }
             # index=pd.Index(
             #     name="Symbol",
