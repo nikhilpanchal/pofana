@@ -98,4 +98,4 @@ ENV/
 .gitignore
 position/__pycache__/
 refdata/__pycache__/
-.idea/vcs.xml
+.idea/workspace.xml
