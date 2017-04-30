@@ -12,12 +12,6 @@ class Portfolio():
                 "Symbol": ["IBM", "GOOG", "NFLX", "WMT", "M"],
                 # "Country": ["US", "US", "UK", "UK", "US"],
                 "quantity": [100, 200, 300, 400, 500]
-                # "purchase_price": [20, 30, 40, 50, 60]
-                # "purchase_date": [date(2016, 4, 19),
-                #                   date(2016, 5, 19),
-                #                   date(2016, 6, 19),
-                #                   date(2016, 7, 19),
-                #                   date(2016, 8, 19)]
             }
             # index=pd.Index(
             #     name="Symbol",
@@ -75,27 +69,23 @@ class Portfolio():
         periodic_return_data = self.get_returns_data(market_data)
         shock_data = self.get_shock_data(market_data)
         var_data = self.get_var_data(sorted_returns)
-        # print(var_data)
-        # print(var_data.multiply(self.positions["Market Data"], axis="index"))
 
         self.positions = pd.concat([self.positions, periodic_return_data, shock_data, var_data], axis=1)
 
-        print("Time Taken ", (datetime.now() - start).microseconds / 1000, " milliseconds")
+        time_taken = (datetime.now() - start).microseconds / 1000
+
         print(self.positions)
+        print("Time Taken ", time_taken, " milliseconds")
 
     def get_var_data(self, sorted_returns):
-        index_length = len(sorted_returns.index)
         var_confidences = [95, 99]
+        final_index = len(sorted_returns.index)
 
-        var_df = pd.DataFrame()
+        indexes = [int((1 - confidence/100)*final_index) for confidence in var_confidences]
+        vars_df = sorted_returns.iloc[indexes].T.reindex(self.positions["Symbol"]).reset_index(drop=True)
+        vars_df.columns = ["VAR 95%", "VAR 99%"]
 
-        for confidence in var_confidences:
-            var_index = int((1 - confidence/100)*index_length)
-            var_df["VAR {}%".format(confidence)] = self.positions["Market Data"] * sorted_returns.iloc[var_index]\
-                .reindex(self.positions["Symbol"])\
-                .values
-
-        return var_df
+        return vars_df.multiply(self.positions["Market Data"], axis="index")
 
     def get_returns_data(self, market_data):
         one_day_returns = market_data["1-Day-Returns"]

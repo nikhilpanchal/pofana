@@ -40,7 +40,7 @@ Returns a map of symbol -> double[] Array of the 5 numbers described above.
 
 ## Historical Product Scenarios
 
- * Takes in the list of symbols in the S&P and their individual prices over a range of time.
+Takes in the list of symbols in the S&P and their individual prices over a range of time.
  There is a year's worth of price information for each symbol.
  * It then calculates the daily return for each symbol based on these prices like so
    * return[i] = ((price[day_i+1] / price[day_i]) - 1)
@@ -51,7 +51,7 @@ There are a bunch of other numbers in the input excel sheet, my guess is these a
 other prices (open_price, highest_price, trade_price, etc.). This reader just deals with the
 first price for each day and then calculates the return across days.
 
-An interesting point to note, is the historical returns are stored in an object of the
+An interesting point to note, is the historical daily returns are stored in an object of the
 `VarProductScenariosDatabaseCache` class, which holds another map of the symbol and the sorted
 returns. This map is used for the VAR calculation later in the program.
 

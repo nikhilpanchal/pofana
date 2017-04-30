@@ -95,7 +95,6 @@ ENV/
 # Rope project settings
 .ropeproject
 
-.gitignore
+.idea/workspace.xml
 position/__pycache__/
 refdata/__pycache__/
-.idea/workspace.xml
