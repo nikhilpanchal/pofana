@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
-
-from datetime import date
+from datetime import date, datetime
 
 from refdata.marketdata import MarketData
 
@@ -10,20 +9,22 @@ class Portfolio():
     def __init__(self):
         self.positions = pd.DataFrame(
             data={
-                "quantity": [100, 200, 300, 400, 500],
-                "purchase_price": [20, 30, 40, 50, 60],
-                "purchase_date": [date(2016, 4, 19),
-                                  date(2016, 5, 19),
-                                  date(2016, 6, 19),
-                                  date(2016, 7, 19),
-                                  date(2016, 8, 19)]
-            },
-            index=pd.Index(
-                name="Symbol",
-                data=["IBM", "GOOG", "NFLX", "WMT", "M"]
-            )
+                "Symbol": ["IBM", "GOOG", "NFLX", "WMT", "M"],
+                # "Country": ["US", "US", "UK", "UK", "US"],
+                "quantity": [100, 200, 300, 400, 500]
+                # "purchase_price": [20, 30, 40, 50, 60]
+                # "purchase_date": [date(2016, 4, 19),
+                #                   date(2016, 5, 19),
+                #                   date(2016, 6, 19),
+                #                   date(2016, 7, 19),
+                #                   date(2016, 8, 19)]
+            }
+            # index=pd.Index(
+            #     name="Symbol",
+            #     data=["IBM", "GOOG", "NFLX", "WMT", "M"]
+            # )
         )
-        self.positions["Market Value"] = self.positions["quantity"] * self.positions["purchase_price"]
+        # self.positions["Market Value"] = self.positions["quantity"] * self.positions["purchase_price"]
 
     def calculate_portfolio_metrics(self, date_range):
         portfolio = pd.DataFrame(np.nan,
@@ -34,9 +35,11 @@ class Portfolio():
         portfolio.fillna(method="ffill", inplace=True)
 
         dates = date_range.date
-        prices = MarketData.get_market_prices(self.positions.index.values,
+        prices = MarketData.get_market_prices(self.positions["Symbol"],
                                               dates[0],
                                               dates[len(dates) - 1])
+        print(prices.head())
+        print(self.positions)
 
         portfolio["Market Value"] = prices \
             .multiply(self.positions.quantity, axis="columns") \
@@ -44,7 +47,80 @@ class Portfolio():
 
         portfolio["Market Value"] = portfolio["Market Value"].fillna(method="ffill").fillna(0)
         portfolio["1-Day Return"] = portfolio["Market Value"].pct_change(1).fillna(0)
-        portfolio["1-Month Return"] = portfolio["Market Value"].pct_change(30).fillna(0)
-        portfolio["Return"] = (portfolio["Market Value"] - portfolio["Invested Amount"]) / portfolio["Invested Amount"]
 
-        print(portfolio)
+        # print(portfolio.head())
+
+    def calculate_groups(self):
+        positions = self.positions.loc[:, ["Country", "Market Value", "quantity"]]
+        # positions.index = None
+        positions["Sector"] = ["Technology"] * 3 + ["Retail"] * 2
+        # print(positions)
+        pos_by_sector = positions.groupby(["Country", "Sector"])
+        print(pos_by_sector.sum())
+
+    def __check_time(self, op):
+        st = datetime.now()
+        op()
+        print("Time Taken for op: ", (datetime.now() - st).microseconds, " microseconds")
+
+    def calculate_portfolio_symbol_metrics(self, start_date, end_date):
+        result = MarketData.get_market_stats(self.positions["Symbol"], start_date, end_date)
+        market_data = result[0]
+        sorted_returns = result[1]
+
+        start = datetime.now()
+
+        self.positions["Market Data"] = market_data.ix["Prices", 0, :].values * self.positions["quantity"]
+
+        periodic_return_data = self.get_returns_data(market_data)
+        shock_data = self.get_shock_data(market_data)
+        var_data = self.get_var_data(sorted_returns)
+        # print(var_data)
+        # print(var_data.multiply(self.positions["Market Data"], axis="index"))
+
+        self.positions = pd.concat([self.positions, periodic_return_data, shock_data, var_data], axis=1)
+
+        print("Time Taken ", (datetime.now() - start).microseconds / 1000, " milliseconds")
+        print(self.positions)
+
+    def get_var_data(self, sorted_returns):
+        index_length = len(sorted_returns.index)
+        var_confidences = [95, 99]
+
+        var_df = pd.DataFrame()
+
+        for confidence in var_confidences:
+            var_index = int((1 - confidence/100)*index_length)
+            var_df["VAR {}%".format(confidence)] = self.positions["Market Data"] * sorted_returns.iloc[var_index]\
+                .reindex(self.positions["Symbol"])\
+                .values
+
+        return var_df
+
+    def get_returns_data(self, market_data):
+        one_day_returns = market_data["1-Day-Returns"]
+
+        def format_returns(x):
+            return (x.product() - 1) * 100
+
+        returns_df = pd.DataFrame()
+
+        returns_df["1-Day-Return"] = one_day_returns[-1:].apply(format_returns).T.reindex(self.positions["Symbol"]).values
+        returns_df["1-Week-Return"] = one_day_returns[-5:].apply(format_returns).reindex(self.positions["Symbol"]).values
+        returns_df["1-Month-Return"] = one_day_returns[-20:].apply(format_returns).reindex(self.positions["Symbol"]).values
+        returns_df["3-Month-Return"] = one_day_returns[-60:].apply(format_returns).reindex(self.positions["Symbol"]).values
+
+        return returns_df
+
+    def get_shock_data(self, market_data):
+        # end_prices = market_data["Prices"][-1:].T.squeeze().reindex(self.positions["Symbol"])
+        # market_values = end_prices.values * self.positions["quantity"]
+        market_values = self.positions["Market Data"]
+
+        shock_df = pd.DataFrame()
+        shock_df["+1% Shock"] = market_values * 1.01
+        shock_df["-1% Shock"] = market_values * 0.99
+        shock_df["+5% Shock"] = market_values * 1.05
+        shock_df["-5% Shock"] = market_values * 0.95
+
+        return shock_df
